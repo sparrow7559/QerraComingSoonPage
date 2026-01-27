@@ -1,0 +1,19 @@
+module.exports = {
+  content: ["./index.html", "./src/**/*.{js,jsx,ts,tsx}"],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: [
+          '"Poppins"',
+          '"Outfit"',
+          '"Montserrat"',
+          '"Be Vietnam Pro"',
+          "ui-sans-serif",
+          "system-ui",
+          "sans-serif",
+        ],
+      },
+    },
+  },
+  plugins: [],
+};
