@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-// import { ImageWithFallback } from "./components/ImageWithFallBack";
 import VideoParticleMorph from "./comingSoon";
 
 const WEB_APP_URL =
@@ -36,13 +35,7 @@ export default function ComingSoonText() {
       <div
         className="pointer-events-none absolute inset-0 z-0 opacity-5"
         aria-hidden="true"
-      >
-        {/* <ImageWithFallback
-          src=""
-          alt="Background texture"
-          className="h-full w-full object-cover"
-        /> */}
-      </div>
+      />
 
       {/* Orange accent elements */}
       <div
