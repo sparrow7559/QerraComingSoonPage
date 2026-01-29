@@ -19,25 +19,44 @@ export default function VideoParticleMorph() {
     if (!ctx) return;
 
     let mounted = true;
-    let dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const saveData = navigator.connection?.saveData;
+    const deviceMemory = navigator.deviceMemory || 4;
+    const isSmall = Math.min(window.innerWidth, window.innerHeight) < 640;
+    const lowPower = prefersReducedMotion || saveData || deviceMemory <= 4;
+
+    let dpr = Math.max(
+      1,
+      Math.min(lowPower || isSmall ? 1.25 : 2, window.devicePixelRatio || 1),
+    );
 
     let pts = [];
     let N = 0;
     let radius = new Float32Array(0);
     let seed = new Float32Array(0);
     let zBase = new Float32Array(0);
+    let vignette = null;
 
     const rebuild = () => {
-      dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      dpr = Math.max(
+        1,
+        Math.min(lowPower || isSmall ? 1.25 : 2, window.devicePixelRatio || 1),
+      );
       const W = Math.max(1, Math.round(window.innerWidth * dpr));
       const H = Math.max(1, Math.round(window.innerHeight * dpr));
       canvas.width = W;
       canvas.height = H;
 
       const area = (W * H) / (dpr * dpr);
-      const density = Math.round(Math.max(1400, Math.min(4200, area / 90)));
+      const densityScale = lowPower ? 0.5 : isSmall ? 0.7 : 1;
+      const density = Math.round(
+        Math.max(700, Math.min(3000, (area / 90) * densityScale)),
+      );
+      const step = lowPower || isSmall ? 2 : 1;
 
-      pts = buildPointCloudFromLogoVector({ w: W, h: H, density });
+      pts = buildPointCloudFromLogoVector({ w: W, h: H, density, step });
       N = pts.length;
 
       const baseR = Math.max(0.55, Math.min(1.2, Math.min(W, H) / 720));
@@ -54,6 +73,17 @@ export default function VideoParticleMorph() {
         zBase[i] = (h3 - 0.5) * depth;
       }
 
+      vignette = ctx.createRadialGradient(
+        W * 0.5,
+        H * 0.55,
+        0,
+        W * 0.5,
+        H * 0.55,
+        Math.max(W, H) * 0.55,
+      );
+      vignette.addColorStop(0, "rgba(0,0,0,0)");
+      vignette.addColorStop(1, "rgba(0,0,0,0.35)");
+
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     };
 
@@ -65,12 +95,20 @@ export default function VideoParticleMorph() {
     window.addEventListener("resize", onResize);
 
     const start = performance.now();
-    const alphaBuckets = new Array(8)
+    const bucketCount = lowPower || isSmall ? 5 : 8;
+    const alphaBuckets = new Array(bucketCount)
       .fill(0)
-      .map((_, i) => 0.12 + (i / 7) * 0.62);
+      .map((_, i) => 0.12 + (i / Math.max(1, bucketCount - 1)) * 0.62);
+    const frameInterval = lowPower || isSmall ? 1000 / 30 : 0;
+    let lastFrame = 0;
 
     const draw = (now) => {
       if (!mounted) return;
+      if (frameInterval && now - lastFrame < frameInterval) {
+        rafRef.current = requestAnimationFrame(draw);
+        return;
+      }
+      lastFrame = now;
 
       const W = canvas.width;
       const H = canvas.height;
@@ -79,32 +117,24 @@ export default function VideoParticleMorph() {
       const pulse = (Math.sin(t * 0.00085) + 1) * 0.5;
       const jitterBoost = smoothstep(0.55, 0.92, pulse) * 0.9;
 
-      const rotY = (t * 0.0019) % (Math.PI * 2);
+      const rotY = (t * 0.0017) % (Math.PI * 2);
       const persp = Math.max(W, H) * 0.95;
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, W, H);
 
-      const grad = ctx.createRadialGradient(
-        W * 0.5,
-        H * 0.55,
-        0,
-        W * 0.5,
-        H * 0.55,
-        Math.max(W, H) * 0.55,
-      );
-      grad.addColorStop(0, "rgba(0,0,0,0)");
-      grad.addColorStop(1, "rgba(0,0,0,0.35)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, W, H);
+      if (vignette) {
+        ctx.fillStyle = vignette;
+        ctx.fillRect(0, 0, W, H);
+      }
 
       ctx.save();
       ctx.translate(W / 2, H / 2);
 
       ctx.shadowColor = "rgba(255,255,255,0.18)";
-      ctx.shadowBlur = 5 * dpr;
+      ctx.shadowBlur = (lowPower ? 2 : 5) * dpr;
 
-      const lod = W < 520 ? 2 : 1;
+      const lod = lowPower ? 3 : W < 520 ? 2 : 1;
 
       for (let b = 0; b < alphaBuckets.length; b++) {
         const aBucket = alphaBuckets[b] * (0.75 + 0.2 * jitterBoost);
@@ -135,10 +165,16 @@ export default function VideoParticleMorph() {
       }
 
       ctx.restore();
-      rafRef.current = requestAnimationFrame(draw);
+      if (!prefersReducedMotion) {
+        rafRef.current = requestAnimationFrame(draw);
+      }
     };
 
-    rafRef.current = requestAnimationFrame(draw);
+    if (prefersReducedMotion) {
+      draw(performance.now());
+    } else {
+      rafRef.current = requestAnimationFrame(draw);
+    }
 
     return () => {
       mounted = false;
@@ -148,7 +184,7 @@ export default function VideoParticleMorph() {
   }, []);
 
   return (
-    <div className="videomorph-container pointer-events-none fixed inset-0 flex h-screen w-screen items-center justify-center overflow-hidden bg-transparent -translate-y-10">
+    <div className="videomorph-container pointer-events-none fixed inset-0 z-0 flex h-screen w-screen items-center justify-center overflow-hidden bg-transparent -translate-y-10">
       <div
         className="pointer-events-none absolute inset-0 bg-transparent opacity-95 mix-blend-screen"
         aria-hidden

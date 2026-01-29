@@ -31,7 +31,7 @@ export default function ComingSoonText() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black">
+    <div className="relative min-h-screen overflow-hidden bg-black isolate">
       {/* Background texture */}
       <div
         className="pointer-events-none absolute inset-0 z-0 opacity-5"
@@ -54,6 +54,8 @@ export default function ComingSoonText() {
         aria-hidden="true"
       />
 
+      <VideoParticleMorph />
+
       {/* Main content */}
       <div className="relative z-20 flex min-h-screen flex-col items-center justify-center px-6 py-12 text-center">
         {/* Japanese text accent */}
@@ -74,8 +76,6 @@ export default function ComingSoonText() {
 
         {/* Replace the 11 <br/> with spacing */}
         <div className="h-35 md:h-48 sm:h-50" />
-
-        <VideoParticleMorph />
 
         {/* Coming soon message */}
         <div className="mb-12 mt-10 max-w-md">

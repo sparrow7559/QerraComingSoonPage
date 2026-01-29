@@ -28,6 +28,7 @@ export function buildPointCloudFromLogoVector({
   h,
   density,
   threshold = 40,
+  step = 1,
 }) {
   const off = document.createElement("canvas");
   off.width = w;
@@ -79,7 +80,6 @@ export function buildPointCloudFromLogoVector({
   const img = ctx.getImageData(0, 0, w, h).data;
   const pts = [];
 
-  const step = 1;
   for (let y = 0; y < h; y += step) {
     for (let x = 0; x < w; x += step) {
       const i = (y * w + x) * 4;
